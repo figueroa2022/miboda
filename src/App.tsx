@@ -58,9 +58,18 @@ export default function App() {
     try {
       const response = await fetch('/api/album-data');
       if (response.ok) {
-        const data = await response.json();
-        setPhotos(data.photos);
-        setBackgroundUrl(data.backgroundUrl);
+        const text = await response.text();
+        if (text.trim().startsWith('{')) {
+          const data = JSON.parse(text);
+          if (data && Array.isArray(data.photos)) {
+            setPhotos(data.photos);
+          }
+          if (data && data.backgroundUrl) {
+            setBackgroundUrl(data.backgroundUrl);
+          }
+        } else {
+          console.warn('API de álbum retornó HTML o texto plano. Modo de depuración o servidor estático detectado.');
+        }
       }
     } catch (error) {
       console.error('Error fetching album data:', error);
@@ -162,8 +171,17 @@ export default function App() {
         setPhotos(prev => prev.filter(p => p.id !== photoId));
         showStatus('La hermosa memoria ha sido removida del álbum compartido.', 'success');
       } else {
-        const data = await response.json();
-        showStatus(data.error || 'No fue posible eliminar la foto.', 'error');
+        const text = await response.text();
+        let errorMsg = 'No fue posible eliminar la foto.';
+        if (text.trim().startsWith('{')) {
+          try {
+            const data = JSON.parse(text);
+            errorMsg = data.error || errorMsg;
+          } catch (e) {
+            // ignore
+          }
+        }
+        showStatus(errorMsg, 'error');
       }
     } catch (e) {
       showStatus('Error de red al borrar la foto.', 'error');
@@ -187,9 +205,14 @@ export default function App() {
         });
 
         if (response.ok) {
-          const resData = await response.json();
-          setBackgroundUrl(resData.backgroundUrl);
-          showStatus('¡Se actualizó la hermosa foto de portada del álbum familiar!', 'success');
+          const text = await response.text();
+          if (text.trim().startsWith('{')) {
+            const resData = JSON.parse(text);
+            setBackgroundUrl(resData.backgroundUrl);
+            showStatus('¡Se actualizó la hermosa foto de portada del álbum familiar!', 'success');
+          } else {
+            showStatus('¡Se actualizó la hermosa foto de portada!', 'success');
+          }
         } else {
           showStatus('No se pudo subir la foto de portada. Intente con otra de menor tamaño.', 'error');
         }
