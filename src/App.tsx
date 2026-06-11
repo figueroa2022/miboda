@@ -13,7 +13,7 @@ import {
   HelpCircle,
   Image as ImageIcon
 } from 'lucide-react';
-import { Photo, CategoryKey } from './types';
+import { Photo, CategoryKey, DEFAULT_PHOTOS_FALLBACK } from './types';
 import WelcomeScreen from './components/WelcomeScreen';
 import GallerySection from './components/GallerySection';
 import UploadModal from './components/UploadModal';
@@ -53,8 +53,9 @@ export default function App() {
     }
   }, []);
 
-  // Fetch album photos and background from custom Node.js server
+  // Fetch album photos and background from custom Node.js server with localStorage fallback for static sites (like Netlify)
   const fetchAlbumData = async () => {
+    let loadedFromApi = false;
     try {
       const response = await fetch('/api/album-data');
       if (response.ok) {
@@ -63,16 +64,39 @@ export default function App() {
           const data = JSON.parse(text);
           if (data && Array.isArray(data.photos)) {
             setPhotos(data.photos);
+            loadedFromApi = true;
           }
           if (data && data.backgroundUrl) {
             setBackgroundUrl(data.backgroundUrl);
           }
-        } else {
-          console.warn('API de álbum retornó HTML o texto plano. Modo de depuración o servidor estático detectado.');
         }
       }
     } catch (error) {
-      console.error('Error fetching album data:', error);
+      console.warn('Backend API not available or threw error, using client-side fallback:', error);
+    }
+
+    if (!loadedFromApi) {
+      // Local fallback representation for Netlify/static hosting
+      const storedLocalStr = localStorage.getItem('wedding-photos-local-db');
+      let localPhotos = [];
+      if (storedLocalStr) {
+        try {
+          localPhotos = JSON.parse(storedLocalStr);
+        } catch (e) {
+          localPhotos = [];
+        }
+      }
+      
+      if (!Array.isArray(localPhotos) || localPhotos.length === 0) {
+        localPhotos = [...DEFAULT_PHOTOS_FALLBACK];
+        localStorage.setItem('wedding-photos-local-db', JSON.stringify(localPhotos));
+      }
+      setPhotos(localPhotos);
+
+      const cachedBg = localStorage.getItem('wedding-background-local');
+      if (cachedBg) {
+        setBackgroundUrl(cachedBg);
+      }
     }
   };
 
@@ -145,21 +169,49 @@ export default function App() {
   // --- API Handlers ---
 
   const handleLikePhoto = async (photoId: string) => {
+    // Optimistic update
+    setPhotos(prev => prev.map(p => p.id === photoId ? { ...p, likes: p.likes + 1 } : p));
+
+    // Persist like to local storage fallback
+    const storedLocalStr = localStorage.getItem('wedding-photos-local-db');
+    if (storedLocalStr) {
+      try {
+        const localPhotos = JSON.parse(storedLocalStr);
+        if (Array.isArray(localPhotos)) {
+          const updated = localPhotos.map((p: any) => p.id === photoId ? { ...p, likes: p.likes + 1 } : p);
+          localStorage.setItem('wedding-photos-local-db', JSON.stringify(updated));
+        }
+      } catch (e) {
+        console.error('Error saving local likes', e);
+      }
+    }
+
     try {
-      // Optimistic update
-      setPhotos(prev => prev.map(p => p.id === photoId ? { ...p, likes: p.likes + 1 } : p));
-      
       await fetch('/api/like', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ photoId })
       });
     } catch (e) {
-      console.error('Failed to post like', e);
+      console.warn('Liked on client-side cache only (no server connected).');
     }
   };
 
   const handleDeletePhoto = async (photoId: string) => {
+    // Delete from localStorage fallback
+    const storedLocalStr = localStorage.getItem('wedding-photos-local-db');
+    if (storedLocalStr) {
+      try {
+        const localPhotos = JSON.parse(storedLocalStr);
+        if (Array.isArray(localPhotos)) {
+          const updated = localPhotos.filter((p: any) => p.id !== photoId);
+          localStorage.setItem('wedding-photos-local-db', JSON.stringify(updated));
+        }
+      } catch (e) {
+        console.error('Error updating cache on delete', e);
+      }
+    }
+
     try {
       const response = await fetch('/api/delete-photo', {
         method: 'POST',
@@ -172,19 +224,27 @@ export default function App() {
         showStatus('La hermosa memoria ha sido removida del álbum compartido.', 'success');
       } else {
         const text = await response.text();
-        let errorMsg = 'No fue posible eliminar la foto.';
-        if (text.trim().startsWith('{')) {
-          try {
-            const data = JSON.parse(text);
-            errorMsg = data.error || errorMsg;
-          } catch (e) {
-            // ignore
+        // If response is HTML page (like Netlify CDN 404), treat as client delete success
+        if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+          setPhotos(prev => prev.filter(p => p.id !== photoId));
+          showStatus('La hermosa memoria ha sido removida de tu navegador.', 'success');
+        } else {
+          let errorMsg = 'No fue posible eliminar la foto.';
+          if (text.trim().startsWith('{')) {
+            try {
+              const data = JSON.parse(text);
+              errorMsg = data.error || errorMsg;
+            } catch (e) {
+              // ignore
+            }
           }
+          showStatus(errorMsg, 'error');
         }
-        showStatus(errorMsg, 'error');
       }
     } catch (e) {
-      showStatus('Error de red al borrar la foto.', 'error');
+      // Offline fallback: perform deletion on client state anyway
+      setPhotos(prev => prev.filter(p => p.id !== photoId));
+      showStatus('Memoria removida de tu navegador local (Modo Sin Servidor).', 'success');
     }
   };
 
@@ -197,6 +257,11 @@ export default function App() {
     reader.readAsDataURL(file);
     reader.onload = async (event) => {
       const base64Img = event.target?.result as string;
+
+      // Instantly apply locally so they see the background update on static-only hosts
+      localStorage.setItem('wedding-background-local', base64Img);
+      setBackgroundUrl(base64Img);
+
       try {
         const response = await fetch('/api/update-background', {
           method: 'POST',
@@ -214,11 +279,11 @@ export default function App() {
             showStatus('¡Se actualizó la hermosa foto de portada!', 'success');
           }
         } else {
-          showStatus('No se pudo subir la foto de portada. Intente con otra de menor tamaño.', 'error');
+          showStatus('Foto de portada actualizada de forma local (Servidor no responde).', 'success');
         }
       } catch (err) {
-        console.error(err);
-        showStatus('Error al conectar con el servidor para cambiar la portada.', 'error');
+        console.warn('Network unreachable, updated background locally inside browser.', err);
+        showStatus('¡Se actualizó la hermosa foto de portada localmente!', 'success');
       } finally {
         setIsUpdatingBg(false);
       }

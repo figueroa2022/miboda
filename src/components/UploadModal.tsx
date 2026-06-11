@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Upload, Check, AlertCircle, Image as ImageIcon } from 'lucide-react';
-import { CategoryKey } from '../types';
+import { CategoryKey, DEFAULT_PHOTOS_FALLBACK } from '../types';
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -73,8 +73,18 @@ export default function UploadModal({ isOpen, onClose, onUploadSuccess, username
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          // Export as compressed JPEG (0.82 quality)
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.82);
+          
+          // Preserve original format (PNG, WebP, JPEG) when storing in the code's physical folder
+          let mimeType = 'image/jpeg';
+          let quality = 0.82;
+          
+          if (file.type === 'image/png') {
+            mimeType = 'image/png';
+          } else if (file.type === 'image/webp') {
+            mimeType = 'image/webp';
+          }
+          
+          const compressedBase64 = canvas.toDataURL(mimeType, quality);
           setImagePreview(compressedBase64);
         } else {
           // Fallback if canvas context fails
@@ -115,36 +125,101 @@ export default function UploadModal({ isOpen, onClose, onUploadSuccess, username
     setIsUploading(true);
     setErrorCode(null);
 
-    try {
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          filename: 'shared-photo.jpg',
-          data: imagePreview,
-          category: selectedCategory,
-          username: username,
-          caption: caption.trim()
-        }),
-      });
+    let useFallback = false;
+    let response: Response | null = null;
+    let responseData: any = null;
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Fallo al subir la foto.');
+    try {
+      try {
+        response = await fetch('/api/upload', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            filename: `upload-${Date.now()}.png`,
+            data: imagePreview,
+            category: selectedCategory,
+            username: username,
+            caption: ''
+          }),
+        });
+      } catch (fetchErr) {
+        console.warn('Backend server connection failed, using client fallback:', fetchErr);
+        useFallback = true;
       }
 
-      const newPhoto = await response.json();
-      onUploadSuccess(newPhoto);
+      if (response && response.ok) {
+        const responseText = await response.text();
+        if (responseText.trim().startsWith('{')) {
+          try {
+            responseData = JSON.parse(responseText);
+          } catch (parseErr) {
+            console.error('Failed to parse JSON response content:', parseErr);
+          }
+        } else if (responseText.includes('<!DOCTYPE') || responseText.includes('<html')) {
+          console.warn('Backend responded with a landing/404 HTML page. Activating Netlify client fallback.');
+          useFallback = true;
+        }
+      } else if (response) {
+        if (response.status === 413) {
+          throw new Error('La foto es demasiado pesada para el servidor de internet. Por favor intenta con otra de menor peso o resolución.');
+        }
+        // General server failures are treated with fallback on static hosts
+        useFallback = true;
+      } else {
+        useFallback = true;
+      }
+
+      // If we need to fallback because we are on a static host (Netlify)
+      if (useFallback || !responseData) {
+        console.log('Using browser LocalStorage fallback for photo preservation...');
+        
+        const localPhoto = {
+          id: `uploaded-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+          url: imagePreview, // Save the optimized Base64 representation directly
+          category: 'reception', // Reception only, as requested by system rules
+          uploadedBy: username || 'Invitado',
+          uploadedAt: new Date().toISOString(),
+          likes: 0,
+          comments: []
+        };
+
+        const storedLocalStr = localStorage.getItem('wedding-photos-local-db');
+        let localPhotos = [];
+        if (storedLocalStr) {
+          try {
+            localPhotos = JSON.parse(storedLocalStr);
+          } catch (e) {
+            localPhotos = [];
+          }
+        }
+
+        if (!Array.isArray(localPhotos) || localPhotos.length === 0) {
+          localPhotos = [...DEFAULT_PHOTOS_FALLBACK];
+        }
+
+        localPhotos.unshift(localPhoto);
+        localStorage.setItem('wedding-photos-local-db', JSON.stringify(localPhotos));
+
+        onUploadSuccess(localPhoto);
+        
+        // Reset state
+        setImagePreview(null);
+        setCaption('');
+        onClose();
+        return;
+      }
+
+      onUploadSuccess(responseData);
       
       // Reset State
       setImagePreview(null);
       setCaption('');
       onClose();
     } catch (err: any) {
-      console.error('Upload error:', err);
-      setErrorCode(err?.message || 'Error de conexión al cargar la foto. Inténtalo de nuevo.');
+      console.error('Upload error details:', err);
+      setErrorCode(err?.message || 'Error de conexión al cargar la foto. Confirma tu conexión a internet o intenta de nuevo.');
     } finally {
       setIsUploading(false);
     }
