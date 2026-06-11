@@ -272,10 +272,10 @@ export default function GallerySection({
                 className="flex items-center justify-center gap-2 px-4 py-2 hover:bg-sage-700 bg-sage-600 font-medium text-xs text-white rounded-xl shadow-md transition-all cursor-pointer hover:shadow-lg"
               >
                 <Upload className="w-4 h-4" />
-                <span>Subir fotos de Recepción</span>
+                <span>Subir fotos de Recepción 🥂</span>
               </button>
             ) : (
-              <span className="text-[11px] text-sage-500 font-medium italic bg-sage-50 border border-sage-100 px-3 py-1.5 rounded-xl">
+              <span className="text-[11px] text-sage-500 font-medium italic bg-sage-50 border border-sage-100 px-3.5 py-1.5 rounded-xl">
                 Álbum exclusivo de Valentina & Anderson ✨
               </span>
             )}
@@ -289,9 +289,9 @@ export default function GallerySection({
               </div>
               <h3 className="text-base font-semibold text-sage-700 mb-1">Aún no hay fotos en este álbum</h3>
               <p className="text-xs text-sage-400 max-w-sm mb-4">
-                {currentCategory === 'reception' 
-                  ? 'Añade la primera memoria para iniciar el carrusel de fotos compartidas de esta hermosa recepción.'
-                  : 'Este álbum está reservado para fotos oficiales compartidas de Valentina y Anderson.'}
+                {currentCategory === 'reception'
+                  ? 'Sé el primero en compartir un hermoso recuerdo de la gran recepción para iniciar la galería.'
+                  : 'Este álbum está reservado para la importación y visualización de recuerdos oficiales del código.'}
               </p>
               {currentCategory === 'reception' && (
                 <button
@@ -308,15 +308,15 @@ export default function GallerySection({
               {/* Grand stage card */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 bg-white rounded-3xl border border-sage-150 overflow-hidden shadow-md">
                 
-                {/* 1. Large Slide Window (Col-span 8) */}
-                <div className="lg:col-span-8 bg-stone-950 aspect-[4/3] lg:aspect-auto lg:h-[480px] relative flex items-center justify-center overflow-hidden">
+                {/* 1. Large Slide Window (Col-span 12) */}
+                <div className="lg:col-span-12 bg-stone-950 aspect-[4/3] lg:aspect-auto lg:h-[500px] relative flex items-center justify-center overflow-hidden animate-fade-in">
                   
                   {/* Active Slide Image */}
                   <AnimatePresence mode="wait">
                     <motion.img
                       key={filteredPhotos[carouselIndex].id}
                       src={filteredPhotos[carouselIndex].url}
-                      alt={filteredPhotos[carouselIndex].caption || 'Boda de Valentina y Anderson'}
+                      alt="Boda de Valentina y Anderson"
                       initial={{ opacity: 0, scale: 1.02 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.98 }}
@@ -328,7 +328,7 @@ export default function GallerySection({
 
                   {/* Gentle shadow gradients for overlay UI */}
                   <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/50 to-transparent pointer-events-none" />
-                  <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
+                  <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
 
                   {/* Left / Right floating chevrons */}
                   {filteredPhotos.length > 1 && (
@@ -367,67 +367,22 @@ export default function GallerySection({
                       {isPlaying ? <Pause className="w-3.5 h-3.5 animate-pulse" /> : <Play className="w-3.5 h-3.5" />}
                     </button>
                   )}
-                </div>
 
-                {/* 2. Interactive Details sidebar (Col-span 4) */}
-                <div className="lg:col-span-4 p-6 md:p-8 flex flex-col justify-between border-t lg:border-t-0 lg:border-l border-sage-100 bg-white">
-                  
-                  <div className="space-y-6">
-                    {/* Author Details Card */}
-                    <div className="flex items-center justify-between border-b border-sage-100 pb-4">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-full bg-sage-50 text-sage-600 font-semibold flex items-center justify-center border border-sage-150 shadow-inner">
-                          <User className="w-4 h-4 text-sage-500" />
-                        </div>
-                        <div>
-                          <span className="text-[10px] uppercase font-bold tracking-wide text-sage-400 block leading-none">Compartido por</span>
-                          <span className="text-sm font-bold text-sage-800">{filteredPhotos[carouselIndex].uploadedBy}</span>
-                        </div>
+                  {/* Elegant bottom ribbon containing simple photo meta */}
+                  <div className="absolute bottom-4 left-4 right-4 z-10 flex items-center justify-between bg-black/60 backdrop-blur-md px-4 py-2.5 rounded-xl border border-white/10 text-white">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-white">
+                        <User className="w-3 h-3 text-sage-200" />
                       </div>
-
-                      <div className="flex items-center gap-1.5 text-xs font-medium text-sage-500">
-                        <Calendar className="w-4 h-4 text-sage-400" />
-                        <span>{formatDateFriendly(filteredPhotos[carouselIndex].uploadedAt)}</span>
-                      </div>
-                    </div>
-
-                    {/* Quotation caption space */}
-                    <div className="space-y-2">
-                      <span className="text-[10px] uppercase font-bold tracking-wider text-sage-400 block">Detalles & Recuerdos</span>
-                      <div className="bg-sage-50/50 rounded-2xl p-4 border border-sage-100/60 relative">
-                        <span className="font-serif text-3xl text-sage-300 absolute -top-1 -left-1 opacity-40">“</span>
-                        <p className="text-xs md:text-sm text-sage-700 italic leading-relaxed pl-5 relative z-10">
-                          {filteredPhotos[carouselIndex].caption || 'Sin descripción redactada.'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Liking interaction row */}
-                  <div className="mt-8 pt-6 border-t border-sage-100 flex items-center justify-between bg-sage-50/30 p-4 rounded-2xl border border-sage-100">
-                    <div className="space-y-1">
-                      <span className="text-[9px] uppercase font-bold text-sage-400 block tracking-wider leading-none">Votos familiares</span>
-                      <span className="text-xs font-semibold text-sage-700">
-                        A {filteredPhotos[carouselIndex].likes} {filteredPhotos[carouselIndex].likes === 1 ? 'persona le encanta' : 'personas les encanta'}
+                      <span className="text-[11px] md:text-xs">
+                        Compartido por <strong className="font-semibold text-emerald-250">{filteredPhotos[carouselIndex].uploadedBy}</strong>
                       </span>
                     </div>
 
-                    <button
-                      onClick={() => handleLikeCurrent(filteredPhotos[carouselIndex].id)}
-                      className="flex items-center gap-1.5 group cursor-pointer"
-                    >
-                      <motion.div
-                        animate={isLikingActive ? { scale: [1, 1.4, 0.9, 1.2, 1] } : {}}
-                        transition={{ duration: 0.5 }}
-                        className={`p-3 rounded-full border shadow-sm transition-all ${
-                          filteredPhotos[carouselIndex].likes > 0
-                            ? 'bg-rose-500 border-rose-650 text-white hover:bg-rose-600'
-                            : 'bg-white border-sage-200 text-slate-400 hover:text-rose-500 hover:border-rose-300'
-                        }`}
-                      >
-                        <Heart className={`w-4 h-4 ${filteredPhotos[carouselIndex].likes > 0 ? 'fill-white text-white' : ''}`} />
-                      </motion.div>
-                    </button>
+                    <div className="flex items-center gap-1.5 text-[11px] md:text-xs text-stone-300">
+                      <Calendar className="w-3.5 h-3.5 text-stone-400" />
+                      <span>{formatDateFriendly(filteredPhotos[carouselIndex].uploadedAt)}</span>
+                    </div>
                   </div>
 
                 </div>

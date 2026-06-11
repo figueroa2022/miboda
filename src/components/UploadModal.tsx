@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Upload, Check, AlertCircle, Image as ImageIcon } from 'lucide-react';
 import { CategoryKey } from '../types';
@@ -8,10 +8,12 @@ interface UploadModalProps {
   onClose: () => void;
   onUploadSuccess: (newPhoto: any) => void;
   username: string;
+  defaultCategory?: CategoryKey;
 }
 
-export default function UploadModal({ isOpen, onClose, onUploadSuccess, username }: UploadModalProps) {
-  const selectedCategory: CategoryKey = 'reception';
+export default function UploadModal({ isOpen, onClose, onUploadSuccess, username, defaultCategory }: UploadModalProps) {
+  const [selectedCategory] = useState<CategoryKey>('reception');
+  
   const [caption, setCaption] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -254,29 +256,18 @@ export default function UploadModal({ isOpen, onClose, onUploadSuccess, username
               )}
             </div>
 
-            {/* Folder / Moment Locked to Reception */}
-            <div className="space-y-1.5 p-3 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-900 text-xs">
-              <span className="font-semibold block uppercase tracking-wider text-[10px] text-emerald-700">Destino de la foto</span>
-              <p className="flex items-center gap-1.5 font-medium">
+            {/* Album/Folder Destination Info */}
+            <div className="space-y-1.5 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-950 text-xs">
+              <span className="font-bold block uppercase tracking-wider text-[10px] text-emerald-700">Carpeta del Código</span>
+              <p className="flex items-center gap-1.5 font-semibold text-emerald-900">
                 <span>🥂</span> <span>Gran Recepción Especial</span>
-                <span className="text-[10px] text-emerald-600 font-normal">(Subidas habilitadas solo para la fiesta)</span>
+              </p>
+              <p className="text-[10px] text-emerald-600 leading-normal">
+                📁 Esta foto se guardará de forma permanente y física en la carpeta del código: <strong className="text-emerald-700">/uploads/reception</strong>
               </p>
             </div>
 
-            {/* Caption */}
-            <div className="space-y-1">
-              <label className="text-xs font-semibold tracking-wider uppercase text-sage-600 block" htmlFor="photo-cap">
-                Dedicatoria o Descripción (Opcional)
-              </label>
-              <textarea
-                id="photo-cap"
-                rows={2}
-                value={caption}
-                onChange={(e) => setCaption(e.target.value)}
-                placeholder="Ej. ¡Qué bonita pareja! Amamos bailar con ustedes..."
-                className="w-full border border-sage-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-sage-400 placeholder-sage-400 text-sage-800 resize-none"
-              />
-            </div>
+
 
             {/* Submit Button */}
             <div className="pt-2 border-t border-sage-100 flex items-center justify-end gap-2">

@@ -33,6 +33,15 @@ if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
+// Pre-create categorized folders under uploads as requested by the user
+const ALBUMS = ['engagement', 'civil', 'ceremony', 'reception'];
+ALBUMS.forEach(album => {
+  const albumDir = path.join(UPLOADS_DIR, album);
+  if (!fs.existsSync(albumDir)) {
+    fs.mkdirSync(albumDir, { recursive: true });
+  }
+});
+
 // Default initial data for database
 const defaultDb = {
   photos: [
@@ -120,13 +129,66 @@ if (!fs.existsSync(DB_PATH)) {
 }
 
 const getDbData = () => {
+  let db: any;
   try {
     const content = fs.readFileSync(DB_PATH, 'utf-8');
-    return JSON.parse(content);
+    db = JSON.parse(content);
   } catch (error) {
     console.error('Error reading DB:', error);
-    return defaultDb;
+    db = JSON.parse(JSON.stringify(defaultDb));
   }
+
+  // Scan physical directories for files added directly through the code editor/filesystem
+  const categories = ['engagement', 'civil', 'ceremony', 'reception'];
+  const existingUrls = new Set(db.photos.map((p: any) => p.url));
+  let changed = false;
+
+  const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic', '.bmp'];
+
+  categories.forEach(category => {
+    const albumDir = path.join(UPLOADS_DIR, category);
+    if (fs.existsSync(albumDir)) {
+      try {
+        const files = fs.readdirSync(albumDir);
+        files.forEach(file => {
+          if (file.startsWith('.') || file === '.gitkeep') {
+            return;
+          }
+          const ext = path.extname(file).toLowerCase();
+          if (!validExtensions.includes(ext)) {
+            return;
+          }
+
+          const relativeUrl = `/uploads/${category}/${file}`;
+          // If this file does not have an entry in the JSON database, register it as shared by "Novios"
+          if (!existingUrls.has(relativeUrl)) {
+            const stats = fs.statSync(path.join(albumDir, file));
+            const newPhoto = {
+              id: `imported-${category}-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+              url: relativeUrl,
+              category: category,
+              uploadedBy: 'Novios',
+              uploadedAt: stats.mtime.toISOString(),
+              likes: 0,
+              caption: '',
+              comments: []
+            };
+            db.photos.unshift(newPhoto);
+            existingUrls.add(relativeUrl);
+            changed = true;
+          }
+        });
+      } catch (err) {
+        console.error(`Error scanning album directory for ${category}:`, err);
+      }
+    }
+  });
+
+  if (changed) {
+    saveDbData(db);
+  }
+
+  return db;
 };
 
 const saveDbData = (data: typeof defaultDb) => {
@@ -169,8 +231,10 @@ async function startServer() {
         return res.status(400).json({ error: 'Missing required fields: data, category, username' });
       }
 
-      if (category !== 'reception') {
-        return res.status(400).json({ error: 'Solamente se permite subir fotos correspondientes a la Recepción Especial.' });
+      // Validate that category represents one of our registered albums
+      const ALL_ALBUMS = ['engagement', 'civil', 'ceremony', 'reception'];
+      if (!ALL_ALBUMS.includes(category)) {
+        return res.status(400).json({ error: `La categoría '${category}' no es válida. Debe ser una de: ${ALL_ALBUMS.join(', ')}` });
       }
 
       // Check if it has the base64 prefix and extract it
@@ -185,12 +249,18 @@ async function startServer() {
 
       // Unique filename
       const uniqueFilename = `photo-${Date.now()}-${Math.floor(Math.random() * 100000)}.${ext}`;
-      const filePath = path.join(UPLOADS_DIR, uniqueFilename);
+      
+      // Target localized subfolder inside the code uploads directory
+      const albumDirPath = path.join(UPLOADS_DIR, category);
+      if (!fs.existsSync(albumDirPath)) {
+        fs.mkdirSync(albumDirPath, { recursive: true });
+      }
 
+      const filePath = path.join(albumDirPath, uniqueFilename);
       fs.writeFileSync(filePath, buffer);
 
       const db = getDbData();
-      const relativeUrl = `/uploads/${uniqueFilename}`;
+      const relativeUrl = `/uploads/${category}/${uniqueFilename}`;
 
       const newPhoto = {
         id: `uploaded-${Date.now()}`,

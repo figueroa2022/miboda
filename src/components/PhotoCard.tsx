@@ -83,40 +83,6 @@ export default function PhotoCard({ photo, currentUsername, onLike, onDelete }: 
           loading="lazy"
         />
 
-        {/* Engagement, civil, ceremony banner placeholder if no-caption */}
-        {photo.caption && (
-          <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/85 via-black/50 to-transparent text-white">
-            <p className="text-xs line-clamp-2 leading-relaxed text-slate-150">
-              {photo.caption}
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Action Buttons Row */}
-      <div className="px-4 py-3 flex items-center justify-between border-t border-sage-100/50 bg-white">
-        <div className="flex items-center gap-4">
-          {/* Heart Like Button */}
-          <button
-            onClick={handleLike}
-            className="flex items-center gap-1.5 group cursor-pointer"
-          >
-            <motion.div
-              animate={isLiking ? { scale: [1, 1.4, 0.9, 1.2, 1] } : {}}
-              transition={{ duration: 0.5 }}
-              className={`p-1.5 rounded-full transition-colors ${
-                photo.likes > 0
-                  ? 'bg-rose-50 text-rose-500'
-                  : 'bg-stone-50 text-stone-400 group-hover:text-rose-400 group-hover:bg-rose-50/40'
-              }`}
-            >
-              <Heart className={`w-4 h-4 ${photo.likes > 0 ? 'fill-rose-500' : ''}`} />
-            </motion.div>
-            <span className={`text-xs font-semibold ${photo.likes > 0 ? 'text-rose-500' : 'text-stone-500'}`}>
-              {photo.likes}
-            </span>
-          </button>
-        </div>
       </div>
     </motion.div>
   );

@@ -400,6 +400,7 @@ export default function App() {
         onClose={() => setIsUploadOpen(false)}
         onUploadSuccess={handleNewUploadSuccess}
         username={username}
+        defaultCategory={currentCategory}
       />
 
       {/* Simple footer containing wedding signatures */}
