@@ -1,0 +1,6 @@
+{
+  "name": "Dots Memories - Valentina & Anderson",
+  "description": "Álbum de bodas compartido en tiempo real para Valentina y Anderson. Sube, organiza y comenta fotos de su boda (Pedida de Mano, Boda Civil, Ceremonia y Recepción).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
